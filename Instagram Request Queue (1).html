@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request Queue — Instagram Follow Requests</title>
+<style>
+:root { color-scheme: light dark; --bg: light-dark(#f5f6fa,#11131a); --panel: light-dark(#ffffff,#1a1d27); --panel2: light-dark(#f0f2f8,#222633); --text: light-dark(#171923,#f4f5fb); --muted: light-dark(#687084,#a6adbf); --border: light-dark(#e1e5ef,#303646); --accent: light-dark(#6d4aff,#a99aff); --accentText:#fff; --green: light-dark(#16865c,#55d6a0); --danger: light-dark(#b42336,#ff8190); }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+#app { min-height:100vh; background:var(--bg); padding:32px 18px 56px; }
+.shell { max-width:1040px; margin:0 auto; }
+.top { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+.brand { display:flex; align-items:center; gap:12px; }
+.logo { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,#ff8a5c,#d34fbd 55%,#665cff); color:white; font-size:23px; box-shadow:0 8px 24px #a04bb52b; }
+.brand h1 { font-size:18px; margin:0; letter-spacing:-.4px; }
+.brand p { color:var(--muted); margin:2px 0 0; font-size:12px; }
+.local-pill { border:1px solid var(--border); border-radius:999px; padding:7px 11px; color:var(--muted); font-size:12px; white-space:nowrap; }
+.hero { display:grid; grid-template-columns:1.2fr .8fr; gap:22px; align-items:stretch; margin-bottom:22px; }
+.intro { padding:28px 0; }
+.eyebrow { text-transform:uppercase; letter-spacing:1.8px; color:var(--accent); font-size:11px; font-weight:800; }
+h2 { font-size:clamp(30px,5vw,46px); letter-spacing:-1.8px; line-height:1.06; margin:12px 0 14px; max-width:560px; }
+.intro p { color:var(--muted); max-width:530px; margin:0 0 18px; }
+.panel { background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:22px; box-shadow:0 8px 32px #00000008; }
+.upload { display:flex; flex-direction:column; justify-content:center; min-height:220px; border:1.5px dashed var(--border); background:var(--panel); text-align:center; transition:.18s; }
+.upload.drag { border-color:var(--accent); background:var(--panel2); }
+.upload-icon { font-size:28px; margin-bottom:8px; }
+.upload h3 { margin:0 0 5px; font-size:17px; }
+.upload p { color:var(--muted); margin:0 0 15px; font-size:13px; }
+button,.button { border:0; border-radius:11px; padding:10px 14px; background:var(--accent); color:var(--accentText); font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; text-decoration:none; transition:transform .12s,opacity .12s; }
+button:hover,.button:hover { transform:translateY(-1px); } button:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+button.secondary { background:var(--panel2); border:1px solid var(--border); color:var(--text); }
+button.ghost { background:transparent; border:1px solid var(--border); color:var(--muted); }
+button.danger { background:transparent; border:1px solid color-mix(in srgb,var(--danger) 40%,var(--border)); color:var(--danger); }
+.small { padding:7px 10px; border-radius:9px; font-size:12px; }
+#fileInput { display:none; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:18px 0 24px; }
+.stat { padding:17px 19px; border:1px solid var(--border); border-radius:16px; background:var(--panel); }
+.stat .label { font-size:12px; color:var(--muted); }
+.stat .number { font-size:28px; font-weight:800; letter-spacing:-1px; margin-top:5px; }
+.toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.search { flex:1; min-width:180px; padding:11px 13px; border:1px solid var(--border); border-radius:11px; color:var(--text); background:var(--panel); outline:none; font:inherit; }
+.search:focus { border-color:var(--accent); }
+.list-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.list-head h3 { font-size:17px; margin:0; }
+.list-head span { color:var(--muted); font-size:12px; }
+.request-list { display:grid; gap:9px; }
+.request { display:flex; align-items:center; gap:12px; padding:13px 15px; border:1px solid var(--border); background:var(--panel); border-radius:14px; min-width:0; }
+.avatar { width:42px; height:42px; flex:none; border-radius:50%; display:grid; place-items:center; color:var(--accent); background:var(--panel2); font-size:17px; font-weight:800; }
+.person { flex:1; min-width:0; }
+.username { color:var(--text); font-weight:750; text-decoration:none; overflow-wrap:anywhere; }
+.username:hover { color:var(--accent); text-decoration:underline; }
+.sub { color:var(--muted); font-size:12px; margin-top:2px; }
+.row-actions { display:flex; gap:7px; align-items:center; flex:none; }
+.empty { padding:36px 18px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:15px; }
+.empty strong { display:block; color:var(--text); font-size:16px; margin-bottom:5px; }
+.notice { margin-top:18px; padding:14px 16px; border-radius:13px; background:var(--panel2); color:var(--muted); font-size:12px; }
+.notice strong { color:var(--text); }
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg); border-radius:12px; padding:11px 16px; font-size:13px; box-shadow:0 8px 30px #0002; z-index:5; max-width:calc(100vw - 32px); }
+@media(max-width:720px) { #app{padding:20px 13px 40px}.hero{grid-template-columns:1fr;gap:8px}.intro{padding:14px 0 6px}.stats{gap:8px}.stat{padding:13px}.stat .number{font-size:23px}.local-pill{display:none}.row-actions{flex-direction:column}.request{padding:11px}.row-actions button{width:100%} }
+</style>
+</head>
+<body>
+<div id="app">
+ <main class="shell">
+  <header class="top"><div class="brand"><div class="logo">◎</div><div><h1>Request Queue</h1><p>A simple workspace for your Instagram requests</p></div></div><div class="local-pill">🔒 Local file · No login required</div></header>
+  <section class="hero">
+   <div class="intro"><div class="eyebrow">Your list, under control</div><h2>Clean up your pending follow requests.</h2><p>Import your Instagram data export, review the accounts you requested to follow, and open profiles one by one. Your progress stays in this browser.</p><button id="sampleBtn" class="secondary">Try a sample list</button></div>
+   <div id="dropZone" class="panel upload"><div class="upload-icon">📂</div><h3>Import your Instagram file</h3><p>Choose the JSON, HTML, CSV or TXT file containing your sent requests.</p><div><button id="chooseBtn">Choose file</button> <button id="pasteBtn" class="secondary">Paste usernames</button></div><input id="fileInput" type="file" accept=".json,.html,.htm,.csv,.txt,application/json,text/html,text/csv,text/plain"></div>
+  </section>
+  <section class="stats"><div class="stat"><div class="label">In your list</div><div id="totalCount" class="number">0</div></div><div class="stat"><div class="label">Opened / reviewed</div><div id="reviewedCount" class="number">0</div></div><div class="stat"><div class="label">Progress</div><div id="progressCount" class="number">0%</div></div></section>
+  <section>
+   <div class="toolbar"><input id="search" class="search" placeholder="Search usernames…" aria-label="Search usernames"><button id="exportBtn" class="secondary">Export remaining</button><button id="clearBtn" class="ghost">Clear list</button></div>
+   <div class="list-head"><h3>Pending requests <span id="listCount"></span></h3><span>Click a username to open its profile</span></div>
+   <div id="requestList" class="request-list"><div class="empty"><strong>Your list is ready when you are</strong>Import an Instagram data file to show accounts here.</div></div>
+  </section>
+  <div class="notice"><strong>How it works:</strong> Clicking a username opens the Instagram profile in a new tab and removes that account from this page's working list. This does <strong>not</strong> cancel the Instagram follow request itself. To cancel it, use Instagram's own interface. The page does not ask for your password or connect to Instagram.</div>
+ </main>
+</div>
+<script>
+(() => {
+ const $ = id => document.getElementById(id);
+ let requests = [], reviewed = new Set(), toastTimer;
+ const normalize = s => String(s || '').trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'').trim();
+ const valid = s => /^[a-zA-Z0-9._]{1,30}$/.test(s) && !['p','reel','reels','stories','explore','accounts','direct'].includes(s.toLowerCase());
+ function addCandidate(out, username, href='') { let u=normalize(username); if(!u && href) u=normalize(href); if(valid(u)) out.push({username:u, url:'https://www.instagram.com/'+u+'/'}); }
+ function parseJSON(data) {
+  const out=[];
+  function walk(v) {
+   if(Array.isArray(v)){v.forEach(walk);return;}
+   if(!v || typeof v!=='object') return;
+   const list=v.string_list_data;
+   if(Array.isArray(list)) { for(const item of list) { addCandidate(out,item.value || v.title || v.username,item.href || ''); } if(v.title || v.username) addCandidate(out,v.title || v.username); }
+   else if(typeof v.username==='string') addCandidate(out,v.username,v.href || v.url || '');
+   else if(typeof v.title==='string' && (v.href || v.value || v.timestamp)) addCandidate(out,v.title,v.href || '');
+   Object.entries(v).forEach(([k,val])=>{ if(k!=='string_list_data') walk(val); });
+  }
+  walk(data); return out;
+ }
+ function parseText(text, ext) {
+  if(ext==='json' || /^[\s]*[\[{]/.test(text)) { try { return parseJSON(JSON.parse(text)); } catch(e) { if(ext==='json') throw new Error('That JSON file could not be read. Try the pending follow requests JSON from your Instagram download.'); } }
+  const out=[];
+  if(ext==='html' || ext==='htm' || /<a\s/i.test(text) || /<table\b/i.test(text)) {
+   const doc=new DOMParser().parseFromString(text,'text/html');
+   doc.querySelectorAll('a[href]').forEach(a=>{const href=a.getAttribute('href')||''; if(/instagram\.com/i.test(href)) addCandidate(out,a.textContent || href,href);});
+   doc.querySelectorAll('tr').forEach(row=>{const cells=[...row.querySelectorAll('th,td')].map(cell=>cell.textContent.trim());const label=(cells[0]||'').replace(/:$/,'').trim().toLowerCase();if(['username','user name','username:'].includes(label) && cells[1]) addCandidate(out,cells[1]);});
+   if(!out.length) doc.querySelectorAll('li,div,p').forEach(el=>{if(el.children.length===0){const value=el.textContent.trim();if(/^@?[a-zA-Z0-9._]{1,30}$/.test(value))addCandidate(out,value);}});
+  } else {
+   text.split(/\r?\n/).forEach((line,i)=>{let s=line.trim(); if(!s || (i===0 && /username|user name|profile/i.test(s)))return; const cols=s.split(/[,\t;]/).map(x=>x.trim().replace(/^['"]|['"]$/g,'')); let candidate=cols.find(x=>/instagram\.com\//i.test(x)) || cols.find(x=>/^@?[a-zA-Z0-9._]{1,30}$/.test(x)); if(candidate)addCandidate(out,candidate);});
+  }
+  return out;
+ }
+ function dedupe(items) { const seen=new Set(); return items.filter(x=>{const k=x.username.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}); }
+ function showToast(msg) { let el=document.querySelector('.toast'); if(el)el.remove(); el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),2600); }
+ function render() {
+  const query=$('search').value.trim().toLowerCase(); const visible=requests.filter(r=>r.username.toLowerCase().includes(query));
+  $('totalCount').textContent=requests.length; $('reviewedCount').textContent=reviewed.size; $('progressCount').textContent=(requests.length+reviewed.size ? Math.round(reviewed.size/(requests.length+reviewed.size)*100):0)+'%'; $('listCount').textContent='· '+requests.length;
+  const list=$('requestList'); list.replaceChildren();
+  if(!visible.length) {const e=document.createElement('div');e.className='empty';const strong=document.createElement('strong');strong.textContent=requests.length?'No matching usernames':'All clear';e.append(strong,document.createTextNode(requests.length?'Try a different search.':'Import a file or add usernames to get started.'));list.append(e);return;}
+  visible.forEach(r=>{
+   const card=document.createElement('article');card.className='request';const av=document.createElement('div');av.className='avatar';av.textContent=r.username[0].toUpperCase();
+   const person=document.createElement('div');person.className='person';const a=document.createElement('a');a.className='username';a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='@'+r.username;a.title='Open profile and remove from this working list';
+   a.addEventListener('click',event=>{event.preventDefault();window.open(r.url,'_blank','noopener,noreferrer');requests=requests.filter(x=>x.username.toLowerCase()!==r.username.toLowerCase());reviewed.add(r.username);render();});
+   const sub=document.createElement('div');sub.className='sub';sub.textContent='instagram.com/'+r.username;person.append(a,sub);
+   const actions=document.createElement('div');actions.className='row-actions';const open=document.createElement('button');open.className='small';open.textContent='Open profile ↗';open.addEventListener('click',()=>{window.open(r.url,'_blank','noopener,noreferrer');requests=requests.filter(x=>x.username.toLowerCase()!==r.username.toLowerCase());reviewed.add(r.username);render();});
+   const remove=document.createElement('button');remove.className='small ghost';remove.textContent='Remove';remove.title='Remove from this local list only';remove.addEventListener('click',()=>{requests=requests.filter(x=>x.username.toLowerCase()!==r.username.toLowerCase());render();});
+   actions.append(open,remove);card.append(av,person,actions);list.append(card);
+  });
+ }
+ $('chooseBtn').addEventListener('click',()=>$('fileInput').click());
+ $('fileInput').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const text=await f.text();const ext=(f.name.split('.').pop()||'txt').toLowerCase();const parsed=dedupe(parseText(text,ext));if(!parsed.length)throw new Error('No usernames found. Try the pending follow requests JSON, an HTML export, or a TXT/CSV list.');requests=dedupe([...requests,...parsed]);render();showToast('Imported '+parsed.length+' account'+(parsed.length===1?'':'s'));}catch(err){showToast(err.message||'Could not read that file.');}e.target.value='';});
+ $('pasteBtn').addEventListener('click',()=>{const text=prompt('Paste usernames, one per line (you can include @ or Instagram profile URLs):');if(text===null)return;const parsed=dedupe(parseText(text,'txt'));if(!parsed.length){showToast('No valid usernames found.');return;}requests=dedupe([...requests,...parsed]);render();showToast('Added '+parsed.length+' account'+(parsed.length===1?'':'s'));});
+ $('sampleBtn').addEventListener('click',()=>{requests=dedupe([...requests,{username:'instagram',url:'https://www.instagram.com/instagram/'},{username:'natgeo',url:'https://www.instagram.com/natgeo/'},{username:'design',url:'https://www.instagram.com/design/'}]);render();showToast('Sample list loaded — replace it with your export when ready.');});
+ $('search').addEventListener('input',render);
+ $('exportBtn').addEventListener('click',()=>{if(!requests.length){showToast('No remaining usernames to export.');return;}const blob=new Blob([requests.map(r=>r.username).join('\n')+'\n'],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='remaining-follow-requests.txt';a.click();URL.revokeObjectURL(url);});
+ $('clearBtn').addEventListener('click',()=>{if(!requests.length)return;if(confirm('Clear all usernames from this working list? This will not change Instagram.')){requests=[];render();}});
+ const dz=$('dropZone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(!f)return;const dt=new DataTransfer();dt.items.add(f);$('fileInput').files=dt.files;$('fileInput').dispatchEvent(new Event('change'));});
+ render();
+})();
+</script>
+</body>
+</html>
