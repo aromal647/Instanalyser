@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pending Request Cleaner</title>
+<style>
+:root{--bg:#f6f7f4;--fg:#1c2321;--muted:#5d6762;--line:#d9ddd6;--card:#fff;--accent:#1f6f5c;--accent-fg:#fff;--code:#14201c;--code-fg:#d8efe6}
+@media (prefers-color-scheme:dark){:root{--bg:#121816;--fg:#e6ece8;--muted:#9aa6a0;--line:#2a3430;--card:#192220;--accent:#4cc3a3;--accent-fg:#0b1512;--code:#0c1210;--code-fg:#cfeade}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 20px 64px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px}
+h2{font-size:1.15rem;margin:36px 0 10px}
+p{margin:0 0 12px}
+.lead{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.note{border-left:4px solid var(--accent);padding:10px 14px;background:var(--card);border-radius:0 8px 8px 0;color:var(--muted)}
+ol{padding-left:22px;margin:0}
+li{margin-bottom:8px}
+.row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted)}
+input{width:130px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+pre{margin:0 0 12px;padding:14px;background:var(--code);color:var(--code-fg);border-radius:8px;overflow-x:auto;font:13px/1.5 ui-monospace,Consolas,monospace;max-height:320px}
+button{padding:10px 18px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font:600 1rem system-ui,sans-serif;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+ul{padding-left:20px}
+footer{margin-top:40px;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Pending Request Cleaner</h1>
+<p class="lead">Cancel your sent Instagram follow requests in small batches, from your own logged-in browser.</p>
+
+<p class="note">This page never touches Instagram or your account. It only builds a script for you to copy. You run it yourself in Instagram's browser console, so your login stays on your device.</p>
+
+<h2>1. Set your batch</h2>
+<div class="card">
+  <div class="row">
+    <label>Requests per run
+      <input id="limit" type="number" min="1" max="50" value="20">
+    </label>
+    <label>Min delay (seconds)
+      <input id="delay" type="number" min="3" max="60" value="4">
+    </label>
+  </div>
+  <pre id="code" tabindex="0" aria-label="Generated script"></pre>
+  <button id="copy" type="button">Copy script</button>
+  <span id="status" role="status" aria-live="polite" style="margin-left:10px;color:var(--muted)"></span>
+</div>
+
+<h2>2. Run it</h2>
+<ol>
+  <li>Log in to Instagram on a desktop browser and open your pending requests list (Settings, then Friends and followers, then Follow requests, then Sent).</li>
+  <li>Press <b>F12</b> (or Ctrl+Shift+J) and open the <b>Console</b> tab.</li>
+  <li>If your browser blocks pasting, type <code>allow pasting</code> and press Enter.</li>
+  <li>Paste the script and press Enter. Watch the console for progress.</li>
+  <li>Wait a few hours, then run another batch.</li>
+</ol>
+
+<h2>Good to know</h2>
+<ul>
+  <li>Instagram changes its page layout often. If nothing happens, the button text may differ; edit the matching line in the script.</li>
+  <li>Automating actions goes against Instagram's Terms of Use and fast, repeated actions can get an account temporarily limited. Keep batches small.</li>
+  <li>Only paste scripts you have read. A malicious script in the console can take over your account.</li>
+</ul>
+
+<footer>Not affiliated with Instagram or Meta.</footer>
+</main>
+
+<script>
+const codeEl = document.getElementById('code');
+const limitEl = document.getElementById('limit');
+const delayEl = document.getElementById('delay');
+const statusEl = document.getElementById('status');
+
+function build() {
+  const limit = Math.min(50, Math.max(1, parseInt(limitEl.value, 10) || 20));
+  const delay = Math.min(60, Math.max(3, parseInt(delayEl.value, 10) || 4));
+  return `(async () => {
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const LIMIT = ${limit};
+  const MIN_DELAY = ${delay} * 1000;
+  let done = 0;
+
+  const buttons = [...document.querySelectorAll('button, div[role="button"]')]
+    .filter(b => /^(requested|cancel request|cancel)$/i.test(b.innerText.trim()));
+
+  for (const btn of buttons.slice(0, LIMIT)) {
+    btn.click();
+    await sleep(1500);
+
+    const confirm = [...document.querySelectorAll('button')]
+      .find(b => /^(unfollow|cancel request|yes)$/i.test(b.innerText.trim()));
+    if (confirm) confirm.click();
+
+    done++;
+    console.log('Cancelled ' + done + '/' + Math.min(LIMIT, buttons.length));
+    await sleep(MIN_DELAY + Math.random() * MIN_DELAY);
+  }
+  console.log('Batch finished. Wait a while before running again.');
+})();`;
+}
+
+function render() { codeEl.textContent = build(); }
+limitEl.addEventListener('input', render);
+delayEl.addEventListener('input', render);
+
+document.getElementById('copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(build());
+    statusEl.textContent = 'Copied.';
+  } catch (e) {
+    statusEl.textContent = 'Copy failed. Select the script and copy it manually.';
+  }
+});
+
+render();
+</script>
+</body>
+</html>
